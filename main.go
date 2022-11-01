@@ -19,8 +19,8 @@ const (
 
 type certServer struct {
 	addr string
-	key  string
 	totp *TotpValidator
+	sshd *ssh.ServerConfig
 }
 
 func (cs *certServer) run() error {
@@ -30,10 +30,6 @@ func (cs *certServer) run() error {
 	}
 	defer listener.Close()
 
-	sshd, err := newSSHd(cs.key)
-	if err != nil {
-		return err
-	}
 	log.Printf("%s is listening on %s", os.Args[0], listener.Addr())
 	for {
 		conn, err := listener.Accept()
@@ -41,26 +37,38 @@ func (cs *certServer) run() error {
 			log.Printf("failed to accept connection from %s: %v", conn.RemoteAddr(), err)
 			continue
 		}
-		go handleTCP(conn, sshd)
+		go handleTCP(conn, cs.sshd)
 	}
 	return nil
 }
 
-func NewCertServer() *certServer { // TODO: this is a stub
-	return &certServer{
-		addr: "127.0.0.1:20002",
-		key:  "ssh_host_ed25519_key",
-		totp: NewTotpValidator(map[string]string{
-			"meow":   "sampletotpsecret",
-			"newbie": "sampletotpsecret",
-		}),
+func NewCertServer(addr string, hostkey string, secrets map[string]string) (*certServer, error) { // TODO: this is a stub
+	sshd, err := sshdConfig(hostkey)
+	if err != nil {
+		return nil, err
 	}
+	server := &certServer{
+		addr: addr,
+		totp: NewTotpValidator(secrets),
+		sshd: sshd,
+	}
+	return server, nil
 }
 
 // CLI entrypoint
 func main() {
-	server := NewCertServer()
-	err := server.run()
+	server, err := NewCertServer(
+		"127.0.0.1:20002",
+		"ssh_host_ed25519_key",
+		map[string]string{
+			"meow":   "sampletotpsecret",
+			"newbie": "sampletotpsecret",
+		},
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = server.run()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -117,7 +125,7 @@ func handleSSH(conn *ssh.ServerConn, chans <-chan ssh.NewChannel) {
 }
 
 // Configure ssh server
-func newSSHd(hostKeyPath string) (*ssh.ServerConfig, error) {
+func sshdConfig(hostKeyPath string) (*ssh.ServerConfig, error) {
 	server := &ssh.ServerConfig{
 		PublicKeyCallback: func(c ssh.ConnMetadata, pubkey ssh.PublicKey) (*ssh.Permissions, error) {
 			if pubkey.Type() != ssh.KeyAlgoED25519 {
