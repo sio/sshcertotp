@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"time"
+	"unicode"
 
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
@@ -82,6 +83,12 @@ func (cs *certServer) handleTCP(tcp net.Conn) {
 	conn, chans, reqs, err := ssh.NewServerConn(tcp, cs.sshd)
 	if err != nil {
 		log.Printf("failed to handshake with %s: %v", tcp.RemoteAddr(), err)
+		tcp.Close()
+		return
+	}
+	if !safeUsername(conn.User()) {
+		log.Printf("unsafe username from %s", tcp.RemoteAddr())
+		tcp.Close()
 		return
 	}
 	log.Printf("ssh connection from %s", logConnection(conn))
@@ -165,4 +172,14 @@ func sshdConfig(hostKeyPath string) (*ssh.ServerConfig, error) {
 func logConnection(conn *ssh.ServerConn) string {
 	ext := conn.Permissions.Extensions
 	return fmt.Sprintf("%s@%s (%s %s)", conn.User(), conn.RemoteAddr(), ext["pubkey-type"], ext["pubkey"])
+}
+
+// Check if username is safe
+func safeUsername(name string) bool {
+	for _, r := range name {
+		if !unicode.In(r, unicode.Letter, unicode.Number) {
+			return false
+		}
+	}
+	return true
 }
