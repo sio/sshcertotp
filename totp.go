@@ -20,8 +20,9 @@ type TotpRateLimit struct {
 
 func NewTotpRateLimit(r rate.Limit, b int) *TotpRateLimit {
 	return &TotpRateLimit{
-		rate:  r,
-		burst: b,
+		rate:   r,
+		burst:  b,
+		limits: make(map[string]*rate.Limiter),
 	}
 }
 
