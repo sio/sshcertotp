@@ -106,8 +106,8 @@ func (cs *certServer) handleSSH(conn *ssh.ServerConn, chans <-chan ssh.NewChanne
 			defer channel.Close()
 
 			// Read a single line from SSH session
-			term := terminal.NewTerminal(channel, "# ")
-			line, err := term.ReadLine()
+			term := terminal.NewTerminal(channel, "> ")
+			line, err := term.ReadPassword("# ")
 			if err != nil {
 				return
 			}
