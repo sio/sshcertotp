@@ -152,6 +152,10 @@ func sshdConfig(hostKeyPath string) (*ssh.ServerConfig, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse the host key")
 	}
+	hostKeyAlgo := hostKey.PublicKey().Type()
+	if hostKeyAlgo != ssh.KeyAlgoED25519 {
+		return nil, fmt.Errorf("host key algorithm not supported: %s", hostKeyAlgo)
+	}
 	server.AddHostKey(hostKey)
 	return server, nil
 }
