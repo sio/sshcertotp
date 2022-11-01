@@ -17,10 +17,42 @@ const (
 	MaxSessionLength = 30 * time.Second
 )
 
+// CLI entrypoint
+func main() {
+	server, err := NewCertServer(
+		"127.0.0.1:20002",
+		"ssh_host_ed25519_key",
+		map[string]string{
+			"meow":   "sampletotpsecret",
+			"newbie": "sampletotpsecret",
+		},
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = server.run()
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
 type certServer struct {
 	addr string
 	totp *TotpValidator
 	sshd *ssh.ServerConfig
+}
+
+func NewCertServer(addr string, hostkey string, secrets map[string]string) (*certServer, error) { // TODO: this is a stub
+	sshd, err := sshdConfig(hostkey)
+	if err != nil {
+		return nil, err
+	}
+	server := &certServer{
+		addr: addr,
+		totp: NewTotpValidator(secrets),
+		sshd: sshd,
+	}
+	return server, nil
 }
 
 func (cs *certServer) run() error {
@@ -40,38 +72,6 @@ func (cs *certServer) run() error {
 		go handleTCP(conn, cs.sshd)
 	}
 	return nil
-}
-
-func NewCertServer(addr string, hostkey string, secrets map[string]string) (*certServer, error) { // TODO: this is a stub
-	sshd, err := sshdConfig(hostkey)
-	if err != nil {
-		return nil, err
-	}
-	server := &certServer{
-		addr: addr,
-		totp: NewTotpValidator(secrets),
-		sshd: sshd,
-	}
-	return server, nil
-}
-
-// CLI entrypoint
-func main() {
-	server, err := NewCertServer(
-		"127.0.0.1:20002",
-		"ssh_host_ed25519_key",
-		map[string]string{
-			"meow":   "sampletotpsecret",
-			"newbie": "sampletotpsecret",
-		},
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = server.run()
-	if err != nil {
-		log.Fatal(err)
-	}
 }
 
 // Handle a single TCP connection
