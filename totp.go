@@ -47,7 +47,7 @@ type TotpValidator struct {
 func NewTotpValidator(secrets map[string]string) *TotpValidator {
 	return &TotpValidator{
 		secret: secrets,
-		limit:  NewTotpRateLimit(3/30, 3),
+		limit:  NewTotpRateLimit(3/30.0, 3),
 	}
 }
 
