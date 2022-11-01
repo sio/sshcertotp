@@ -62,7 +62,7 @@ func handleSSH(conn *ssh.ServerConn, chans <-chan ssh.NewChannel) {
 		channel, requests, err := newCh.Accept()
 		if err != nil {
 			log.Printf("could not accept channel: %v", err)
-			return
+			continue
 		}
 		term := terminal.NewTerminal(channel, "> ")
 		go func() {
