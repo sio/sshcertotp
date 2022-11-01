@@ -102,11 +102,11 @@ func (cs *certServer) handleSSH(conn *ssh.ServerConn, chans <-chan ssh.NewChanne
 			log.Printf("could not accept channel: %v", err)
 			continue
 		}
-		term := terminal.NewTerminal(channel, "> ")
 		go func() {
 			defer channel.Close()
 
 			// Read a single line from SSH session
+			term := terminal.NewTerminal(channel, "> ")
 			line, err := term.ReadLine()
 			if err != nil {
 				return
