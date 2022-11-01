@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -58,13 +59,16 @@ func NewTotpValidator(secrets map[string]string) *TotpValidator {
 func (tv *TotpValidator) Check(username string, input string) bool {
 	secret, exists := tv.secret[username]
 	if !exists {
+		log.Printf("no TOTP secret configured for %s", username)
 		return false
 	}
 	if !tv.limit.Allow(username) {
+		log.Printf("TOTP rate limit hit for %s", username)
 		return false
 	}
 	code, err := parseTotp(input)
 	if err != nil {
+		log.Printf("cannot parse TOTP code for %s", username)
 		return false
 	}
 	return totp.Validate(code, secret)
