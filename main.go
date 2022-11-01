@@ -29,11 +29,15 @@ type certServer struct {
 func (cs *certServer) run() error {
 	listener, err := net.Listen("tcp", ListenAddr)
 	if err != nil {
-		return errors.Wrap(err, "failed to listen for connection: ")
+		return errors.Wrap(err, "failed to listen for connection")
 	}
 	defer listener.Close()
 
-	sshd := newSSHd(HostKeyPath)
+	sshd, err := newSSHd(HostKeyPath)
+	if err != nil {
+		return err
+	}
+	log.Printf("%s is listening on %s", os.Args[0], listener.Addr())
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -117,7 +121,7 @@ func handleSSH(conn *ssh.ServerConn, chans <-chan ssh.NewChannel) {
 }
 
 // Configure ssh server
-func newSSHd(hostKeyPath string) *ssh.ServerConfig {
+func newSSHd(hostKeyPath string) (*ssh.ServerConfig, error) {
 	server := &ssh.ServerConfig{
 		PublicKeyCallback: func(c ssh.ConnMetadata, pubkey ssh.PublicKey) (*ssh.Permissions, error) {
 			if pubkey.Type() != ssh.KeyAlgoED25519 {
@@ -133,14 +137,14 @@ func newSSHd(hostKeyPath string) *ssh.ServerConfig {
 	}
 	hostKeyBytes, err := os.ReadFile(hostKeyPath)
 	if err != nil {
-		log.Fatal("failed to read the host key: ", err)
+		return nil, errors.Wrap(err, "failed to read the host key")
 	}
 	hostKey, err := ssh.ParsePrivateKey(hostKeyBytes)
 	if err != nil {
-		log.Fatal("failed to parse the host key: ", err)
+		return nil, errors.Wrap(err, "failed to parse the host key")
 	}
 	server.AddHostKey(hostKey)
-	return server
+	return server, nil
 }
 
 // Format ssh connection information for including in logs
