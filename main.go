@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -16,14 +17,19 @@ const (
 	ListenAddr       = "127.0.0.1:20002"
 	HostKeyPath      = "ssh_host_ed25519_key"
 	MaxSessionLength = 30 * time.Second
-	TotpSecret       = "sampletotpsecret"
 )
 
-// CLI entrypoint
-func main() {
+type certServer struct {
+	listenAddr          string
+	hostKeyPath         string
+	tcpSessionMaxLength time.Duration
+	totpValidator       *TotpValidator
+}
+
+func (cs *certServer) run() error {
 	listener, err := net.Listen("tcp", ListenAddr)
 	if err != nil {
-		log.Fatal("failed to listen for connection: ", err)
+		return errors.Wrap(err, "failed to listen for connection: ")
 	}
 	defer listener.Close()
 
@@ -35,6 +41,28 @@ func main() {
 			continue
 		}
 		go handleTCP(conn, sshd)
+	}
+	return nil
+}
+
+func NewCertServer() *certServer { // TODO: this is a stub
+	return &certServer{
+		listenAddr:          ListenAddr,
+		hostKeyPath:         HostKeyPath,
+		tcpSessionMaxLength: MaxSessionLength,
+		totpValidator: NewTotpValidator(map[string]string{
+			"meow":   "sampletotpsecret",
+			"newbie": "sampletotpsecret",
+		}),
+	}
+}
+
+// CLI entrypoint
+func main() {
+	server := NewCertServer()
+	err := server.run()
+	if err != nil {
+		log.Fatal(err)
 	}
 }
 

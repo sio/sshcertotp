@@ -1,7 +1,10 @@
 package main
 
 import (
+	"strconv"
+	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/pquerna/otp/totp"
 	"golang.org/x/time/rate"
@@ -11,7 +14,7 @@ import (
 type TotpRateLimit struct {
 	rate   rate.Limit
 	burst  int
-	limits map[string]rate.Limiter
+	limits map[string]*rate.Limiter
 	mu     sync.Mutex
 }
 
@@ -51,7 +54,7 @@ func NewTotpValidator(secrets map[string]string) *TotpValidator {
 // Check individual TOTP code against known secrets
 //
 // Return false both when TOTP code is not valid and in case of any errors
-func (tv *TotpValidator) Check(username string, totp string) bool {
+func (tv *TotpValidator) Check(username string, input string) bool {
 	secret, exists := tv.secret[username]
 	if !exists {
 		return false
@@ -59,7 +62,7 @@ func (tv *TotpValidator) Check(username string, totp string) bool {
 	if !tv.limit.Allow(username) {
 		return false
 	}
-	code, err := parseTotp(totp)
+	code, err := parseTotp(input)
 	if err != nil {
 		return false
 	}
