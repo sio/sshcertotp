@@ -16,6 +16,7 @@ const (
 	ListenAddr       = "127.0.0.1:20002"
 	HostKeyPath      = "ssh_host_ed25519_key"
 	MaxSessionLength = 30 * time.Second
+	TotpSecret       = "sampletotpsecret"
 )
 
 // CLI entrypoint
