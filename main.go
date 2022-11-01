@@ -18,19 +18,19 @@ const (
 )
 
 type certServer struct {
-	listenAddr    string
-	hostKeyPath   string
-	totpValidator *TotpValidator
+	addr string
+	key  string
+	totp *TotpValidator
 }
 
 func (cs *certServer) run() error {
-	listener, err := net.Listen("tcp", cs.listenAddr)
+	listener, err := net.Listen("tcp", cs.addr)
 	if err != nil {
 		return errors.Wrap(err, "failed to listen for connection")
 	}
 	defer listener.Close()
 
-	sshd, err := newSSHd(cs.hostKeyPath)
+	sshd, err := newSSHd(cs.key)
 	if err != nil {
 		return err
 	}
@@ -48,9 +48,9 @@ func (cs *certServer) run() error {
 
 func NewCertServer() *certServer { // TODO: this is a stub
 	return &certServer{
-		listenAddr:  "127.0.0.1:20002",
-		hostKeyPath: "ssh_host_ed25519_key",
-		totpValidator: NewTotpValidator(map[string]string{
+		addr: "127.0.0.1:20002",
+		key:  "ssh_host_ed25519_key",
+		totp: NewTotpValidator(map[string]string{
 			"meow":   "sampletotpsecret",
 			"newbie": "sampletotpsecret",
 		}),
