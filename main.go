@@ -36,6 +36,7 @@ func main() {
 	}
 }
 
+// This struct holds all application state
 type certServer struct {
 	addr string
 	totp *TotpValidator
@@ -69,27 +70,27 @@ func (cs *certServer) run() error {
 			log.Printf("failed to accept connection from %s: %v", conn.RemoteAddr(), err)
 			continue
 		}
-		go handleTCP(conn, cs.sshd)
+		go cs.handleTCP(conn)
 	}
 	return nil
 }
 
 // Handle a single TCP connection
-func handleTCP(tcp net.Conn, sshd *ssh.ServerConfig) {
+func (cs *certServer) handleTCP(tcp net.Conn) {
 	tcp.SetDeadline(time.Now().Add(MaxSessionLength))
 
-	conn, chans, reqs, err := ssh.NewServerConn(tcp, sshd)
+	conn, chans, reqs, err := ssh.NewServerConn(tcp, cs.sshd)
 	if err != nil {
 		log.Printf("failed to handshake with %s: %v", tcp.RemoteAddr(), err)
 		return
 	}
 	log.Printf("ssh connection from %s", logConnection(conn))
 	go ssh.DiscardRequests(reqs)
-	go handleSSH(conn, chans)
+	go cs.handleSSH(conn, chans)
 }
 
 // Handle incoming SSH requests
-func handleSSH(conn *ssh.ServerConn, chans <-chan ssh.NewChannel) {
+func (cs *certServer) handleSSH(conn *ssh.ServerConn, chans <-chan ssh.NewChannel) {
 	defer conn.Close()
 	for newCh := range chans {
 		if newCh.ChannelType() != "session" {
@@ -110,7 +111,11 @@ func handleSSH(conn *ssh.ServerConn, chans <-chan ssh.NewChannel) {
 			if err != nil {
 				return
 			}
-			fmt.Println(line)
+			if !cs.totp.Check(conn.User(), line) {
+				log.Printf("TOTP check failed for %s: %s", conn.User(), line)
+				return
+			}
+			log.Printf("TOTP check successful for %s: %s", conn.User(), line)
 		}()
 		go func() {
 			allowed := map[string]bool{
