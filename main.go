@@ -112,10 +112,11 @@ func (cs *certServer) handleSSH(conn *ssh.ServerConn, chans <-chan ssh.NewChanne
 				return
 			}
 			if !cs.totp.Check(conn.User(), line) {
-				log.Printf("TOTP check failed for %s: %s", conn.User(), line)
+				log.Printf("TOTP check failed for %s", conn.User())
 				return
 			}
-			log.Printf("TOTP check successful for %s: %s", conn.User(), line)
+			log.Printf("TOTP check successful for %s", conn.User())
+			term.Write([]byte("# TOTP accepted\n#\n"))
 		}()
 		go func() {
 			allowed := map[string]bool{
