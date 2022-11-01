@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"log"
 	"net"
@@ -45,19 +46,20 @@ func handleTCP(tcp net.Conn, sshd *ssh.ServerConfig) {
 		log.Printf("failed to handshake with %s: %v", tcp.RemoteAddr(), err)
 		return
 	}
-	log.Printf("%s logged in with key %s", conn.Permissions.Extensions["user"], conn.Permissions.Extensions["pubkey"])
+	log.Printf("ssh connection from %s", logConnection(conn))
 	go ssh.DiscardRequests(reqs)
-	go handleSSH(chans)
+	go handleSSH(conn, chans)
 }
 
 // Handle incoming SSH requests
-func handleSSH(chans <-chan ssh.NewChannel) {
+func handleSSH(conn *ssh.ServerConn, chans <-chan ssh.NewChannel) {
+	defer conn.Close()
 	for newCh := range chans {
 		if newCh.ChannelType() != "session" {
 			newCh.Reject(ssh.UnknownChannelType, fmt.Sprintf("unknown channel type %s", newCh.ChannelType()))
 			continue
 		}
-		channel, _, err := newCh.Accept()
+		channel, requests, err := newCh.Accept()
 		if err != nil {
 			log.Printf("could not accept channel: %v", err)
 			return
@@ -73,6 +75,15 @@ func handleSSH(chans <-chan ssh.NewChannel) {
 			}
 			fmt.Println(line)
 		}()
+		go func() {
+			allowed := map[string]bool{
+				"shell":   true,
+				"pty-req": true,
+			}
+			for r := range requests {
+				r.Reply(allowed[r.Type], nil)
+			}
+		}()
 	}
 }
 
@@ -85,9 +96,8 @@ func newSSHd(hostKeyPath string) *ssh.ServerConfig {
 			}
 			return &ssh.Permissions{
 				Extensions: map[string]string{
-					"user":               c.User(),
-					"pubkey":             string(pubkey.Marshal()),
-					"pubkey-fingerprint": ssh.FingerprintSHA256(pubkey),
+					"pubkey":      base64.StdEncoding.EncodeToString(pubkey.Marshal()),
+					"pubkey-type": pubkey.Type(),
 				},
 			}, nil
 		},
@@ -102,4 +112,10 @@ func newSSHd(hostKeyPath string) *ssh.ServerConfig {
 	}
 	server.AddHostKey(hostKey)
 	return server
+}
+
+// Format ssh connection information for including in logs
+func logConnection(conn *ssh.ServerConn) string {
+	ext := conn.Permissions.Extensions
+	return fmt.Sprintf("%s@%s (%s %s)", conn.User(), conn.RemoteAddr(), ext["pubkey-type"], ext["pubkey"])
 }
