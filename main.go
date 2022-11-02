@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	MaxSessionLength    = 30 * time.Second
-	CertificateLifetime = 4 * time.Hour
+	MaxSessionLength = 30 * time.Second
+	MaxCertValidity  = 24 * time.Hour
 )
 
 // CLI entrypoint
@@ -29,6 +29,7 @@ func main() {
 			"meow":   "sampletotpsecret",
 			"newbie": "sampletotpsecret",
 		},
+		4 * time.Hour,
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -41,22 +42,28 @@ func main() {
 
 // This struct holds all application state
 type certServer struct {
-	addr   string
-	totp   *TotpValidator
-	sshd   *ssh.ServerConfig
-	signer *ssh.Signer
+	addr     string
+	totp     *TotpValidator
+	sshd     *ssh.ServerConfig
+	signer   *ssh.Signer
+	validity time.Duration
 }
 
-func NewCertServer(addr string, hostkey string, secrets map[string]string) (*certServer, error) { // TODO: this is a stub
+func NewCertServer(addr string, hostkey string, secrets map[string]string, validity time.Duration) (*certServer, error) {
 	sshd, signer, err := sshdConfig(hostkey)
 	if err != nil {
 		return nil, err
 	}
+	var zero time.Duration
+	if validity == zero || validity > MaxCertValidity {
+		validity = MaxCertValidity
+	}
 	server := &certServer{
-		addr:   addr,
-		totp:   NewTotpValidator(secrets),
-		sshd:   sshd,
-		signer: signer,
+		addr:     addr,
+		totp:     NewTotpValidator(secrets),
+		sshd:     sshd,
+		signer:   signer,
+		validity: validity,
 	}
 	return server, nil
 }
@@ -167,7 +174,7 @@ func (cs *certServer) Sign(conn *ssh.ServerConn) string {
 		Serial:          uint64(now.UnixNano()), // 1ns granularity is enough for revocation
 		ValidPrincipals: []string{conn.User()},
 		ValidAfter:      uint64(now.Unix()),
-		ValidBefore:     uint64(now.Add(CertificateLifetime).Unix()),
+		ValidBefore:     uint64(now.Add(cs.validity).Unix()),
 		Permissions: ssh.Permissions{
 			Extensions: map[string]string{
 				"permit-agent-forwarding": "",
