@@ -223,6 +223,26 @@ func sshdConfig(hostKeyPath string) (*ssh.ServerConfig, *ssh.Signer, error) {
 		return nil, nil, fmt.Errorf("host key algorithm not supported: %s", hostKeyAlgo)
 	}
 	server.AddHostKey(hostKey)
+
+	year, month, _ := time.Now().Date()
+	startOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.FixedZone("UTC", 0))
+	hostCert := ssh.Certificate{
+		Key:         hostKey.PublicKey(),
+		KeyId:       "sshcertotp",
+		CertType:    ssh.HostCert,
+		Serial:      uint64(startOfMonth.Unix()),
+		ValidAfter:  uint64(startOfMonth.Unix()),
+		ValidBefore: uint64(startOfMonth.Add(time.Hour * 24 * 365).Unix()), // if you don't restart a process for 11+ months you have a problem
+	}
+	err = hostCert.SignCert(rand.Reader, hostKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	hostCertSigner, err := ssh.NewCertSigner(&hostCert, hostKey)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to initialize cert signer")
+	}
+	server.AddHostKey(hostCertSigner)
 	return server, &hostKey, nil
 }
 
