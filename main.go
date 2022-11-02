@@ -29,7 +29,7 @@ func main() {
 			"meow":   "sampletotpsecret",
 			"newbie": "sampletotpsecret",
 		},
-		4 * time.Hour,
+		4*time.Hour,
 	)
 	if err != nil {
 		log.Fatal(err)
