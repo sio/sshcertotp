@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"fmt"
 	"log"
@@ -15,7 +16,8 @@ import (
 )
 
 const (
-	MaxSessionLength = 30 * time.Second
+	MaxSessionLength    = 30 * time.Second
+	CertificateLifetime = 4 * time.Hour
 )
 
 // CLI entrypoint
@@ -39,20 +41,22 @@ func main() {
 
 // This struct holds all application state
 type certServer struct {
-	addr string
-	totp *TotpValidator
-	sshd *ssh.ServerConfig
+	addr   string
+	totp   *TotpValidator
+	sshd   *ssh.ServerConfig
+	signer *ssh.Signer
 }
 
 func NewCertServer(addr string, hostkey string, secrets map[string]string) (*certServer, error) { // TODO: this is a stub
-	sshd, err := sshdConfig(hostkey)
+	sshd, signer, err := sshdConfig(hostkey)
 	if err != nil {
 		return nil, err
 	}
 	server := &certServer{
-		addr: addr,
-		totp: NewTotpValidator(secrets),
-		sshd: sshd,
+		addr:   addr,
+		totp:   NewTotpValidator(secrets),
+		sshd:   sshd,
+		signer: signer,
 	}
 	return server, nil
 }
@@ -123,7 +127,9 @@ func (cs *certServer) handleSSH(conn *ssh.ServerConn, chans <-chan ssh.NewChanne
 				return
 			}
 			log.Printf("TOTP check successful for %s", conn.User())
-			term.Write([]byte("# TOTP accepted\n#\n"))
+			cert := cs.Sign(conn)
+			term.Write([]byte(fmt.Sprintf("# TOTP accepted. User certificate printed below:\n#\n%s\n", cert)))
+			log.Printf("New certificate: %s", cert)
 		}()
 		go func() {
 			allowed := map[string]bool{
@@ -137,8 +143,53 @@ func (cs *certServer) handleSSH(conn *ssh.ServerConn, chans <-chan ssh.NewChanne
 	}
 }
 
+// Issue new certificate for the public key of incoming connection
+func (cs *certServer) Sign(conn *ssh.ServerConn) string {
+	nocert := ""
+	pubKeyB64, ok := conn.Permissions.Extensions["pubkey"]
+	if !ok {
+		return nocert
+	}
+	pubKeyBytes, err := base64.StdEncoding.DecodeString(pubKeyB64)
+	if err != nil {
+		return nocert
+	}
+	pubkey, err := ssh.ParsePublicKey(pubKeyBytes)
+	if err != nil {
+		return nocert
+	}
+	now := time.Now()
+	comment := fmt.Sprintf("%s/%d", conn.User(), now.UnixNano())
+	cert := ssh.Certificate{
+		Key:             pubkey,
+		KeyId:           comment,
+		CertType:        ssh.UserCert,
+		Serial:          uint64(now.UnixNano()), // 1ns granularity is enough for revocation
+		ValidPrincipals: []string{conn.User()},
+		ValidAfter:      uint64(now.Unix()),
+		ValidBefore:     uint64(now.Add(CertificateLifetime).Unix()),
+		Permissions: ssh.Permissions{
+			Extensions: map[string]string{
+				"permit-agent-forwarding": "",
+				"permit-port-forwarding":  "",
+				"permit-pty":              "",
+			},
+		},
+	}
+	err = cert.SignCert(rand.Reader, *cs.signer)
+	if err != nil {
+		return nocert
+	}
+	return fmt.Sprintf(
+		"%s %s %s",
+		cert.Type(),
+		base64.StdEncoding.EncodeToString(cert.Marshal()),
+		comment,
+	)
+}
+
 // Configure ssh server
-func sshdConfig(hostKeyPath string) (*ssh.ServerConfig, error) {
+func sshdConfig(hostKeyPath string) (*ssh.ServerConfig, *ssh.Signer, error) {
 	server := &ssh.ServerConfig{
 		PublicKeyCallback: func(c ssh.ConnMetadata, pubkey ssh.PublicKey) (*ssh.Permissions, error) {
 			if pubkey.Type() != ssh.KeyAlgoED25519 {
@@ -154,18 +205,18 @@ func sshdConfig(hostKeyPath string) (*ssh.ServerConfig, error) {
 	}
 	hostKeyBytes, err := os.ReadFile(hostKeyPath)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to read the host key")
+		return nil, nil, errors.Wrap(err, "failed to read the host key")
 	}
 	hostKey, err := ssh.ParsePrivateKey(hostKeyBytes)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse the host key")
+		return nil, nil, errors.Wrap(err, "failed to parse the host key")
 	}
 	hostKeyAlgo := hostKey.PublicKey().Type()
 	if hostKeyAlgo != ssh.KeyAlgoED25519 {
-		return nil, fmt.Errorf("host key algorithm not supported: %s", hostKeyAlgo)
+		return nil, nil, fmt.Errorf("host key algorithm not supported: %s", hostKeyAlgo)
 	}
 	server.AddHostKey(hostKey)
-	return server, nil
+	return server, &hostKey, nil
 }
 
 // Format ssh connection information for including in logs
