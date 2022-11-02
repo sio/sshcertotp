@@ -254,8 +254,14 @@ func logConnection(conn *ssh.ServerConn) string {
 
 // Check if username is safe
 func safeUsername(name string) bool {
+	extra := &unicode.RangeTable{
+		R16: []unicode.Range16{
+			{0x2d, 0x2d, 1}, // dash "-"
+			{0x5f, 0x5f, 1}, // underscore "_"
+		},
+	}
 	for _, r := range name {
-		if !unicode.In(r, unicode.Letter, unicode.Number) {
+		if !unicode.In(r, unicode.Letter, unicode.Number, extra) {
 			return false
 		}
 	}
