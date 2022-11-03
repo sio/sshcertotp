@@ -17,11 +17,12 @@ import (
 
 // This struct holds all application state
 type certServer struct {
-	addr     string
-	totp     *TotpValidator
-	sshd     *ssh.ServerConfig
-	signer   *ssh.Signer
-	validity time.Duration
+	addr       string
+	totp       *TotpValidator
+	sshd       *ssh.ServerConfig
+	signer     *ssh.Signer
+	validity   time.Duration
+	tcpTimeout time.Duration
 }
 
 // Initialize certServer instance
@@ -36,11 +37,12 @@ func NewCertServer(config *certServerConfig) (*certServer, error) {
 		validity = MaxCertValidity
 	}
 	server := &certServer{
-		addr:     config.Address,
-		totp:     NewTotpValidator(config.TOTPSecrets),
-		sshd:     sshd,
-		signer:   signer,
-		validity: validity,
+		addr:       config.Address,
+		totp:       NewTotpValidator(config.TOTPSecrets),
+		sshd:       sshd,
+		signer:     signer,
+		validity:   validity,
+		tcpTimeout: MaxSessionLength,
 	}
 	return server, nil
 }
@@ -86,7 +88,7 @@ func (cs *certServer) run(stop <-chan bool) error {
 
 // Handle a single TCP connection
 func (cs *certServer) handleTCP(tcp net.Conn) {
-	tcp.SetDeadline(time.Now().Add(MaxSessionLength))
+	tcp.SetDeadline(time.Now().Add(cs.tcpTimeout))
 
 	conn, chans, reqs, err := ssh.NewServerConn(tcp, cs.sshd)
 	if err != nil {
