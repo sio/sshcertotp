@@ -37,6 +37,18 @@ func (ts *testServer) Stop() {
 	ts.s <- true
 }
 
+type testClient struct {
+	username   string
+	serverAddr string
+}
+
+func (ts *testServer) Client(username string) *testClient {
+	return &testClient{
+		username:   username,
+		serverAddr: ts.ca.addr,
+	}
+}
+
 func TestStartStop(t *testing.T) {
 	var server testServer
 	var err error
