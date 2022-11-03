@@ -22,15 +22,11 @@ const (
 
 // CLI entrypoint
 func main() {
-	server, err := NewCertServer(
-		"127.0.0.1:20002",
-		"ssh_host_ed25519_key",
-		map[string]string{
-			"meow":   "sampletotpsecret",
-			"newbie": "sampletotpsecret",
-		},
-		4*time.Hour,
-	)
+	config, err := LoadConfig("config.toml")
+	if err != nil {
+		log.Fatal(err)
+	}
+	server, err := NewCertServer(config)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -49,18 +45,19 @@ type certServer struct {
 	validity time.Duration
 }
 
-func NewCertServer(addr string, hostkey string, secrets map[string]string, validity time.Duration) (*certServer, error) {
-	sshd, signer, err := sshdConfig(hostkey)
+func NewCertServer(config *certServerConfig) (*certServer, error) {
+	sshd, signer, err := sshdConfig(config.CAPath)
 	if err != nil {
 		return nil, err
 	}
+	validity := config.Validity
 	var zero time.Duration
 	if validity == zero || validity > MaxCertValidity {
 		validity = MaxCertValidity
 	}
 	server := &certServer{
-		addr:     addr,
-		totp:     NewTotpValidator(secrets),
+		addr:     config.Address,
+		totp:     NewTotpValidator(config.TOTPSecrets),
 		sshd:     sshd,
 		signer:   signer,
 		validity: validity,
