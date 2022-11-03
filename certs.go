@@ -49,7 +49,7 @@ func NewCertServer(config *certServerConfig) (*certServer, error) {
 func NewCertServerFromFile(path string) (*certServer, error) {
 	config, err := LoadConfig(path)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to read config " + path)
+		return nil, errors.Wrap(err, "failed to read config "+path)
 	}
 	server, err := NewCertServer(config)
 	if err != nil {
