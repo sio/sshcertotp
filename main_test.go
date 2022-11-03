@@ -14,7 +14,7 @@ type testServer struct {
 	s  chan bool
 }
 
-func (ts *testServer) start(config *certServerConfig) error {
+func (ts *testServer) Start(config *certServerConfig) error {
 	if config == nil {
 		config = &certServerConfig{
 			Address:  "127.0.0.1:20000",
@@ -32,16 +32,17 @@ func (ts *testServer) start(config *certServerConfig) error {
 	go ts.ca.run(ts.s)
 	return nil
 }
-func (ts *testServer) stop() {
+
+func (ts *testServer) Stop() {
 	ts.s <- true
 }
 
 func TestStartStop(t *testing.T) {
 	var server testServer
 	var err error
-	err = server.start(nil)
+	err = server.Start(nil)
 	if err != nil {
 		t.Fatalf("test server startup error: %v", err)
 	}
-	server.stop()
+	server.Stop()
 }
