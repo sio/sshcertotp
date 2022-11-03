@@ -13,15 +13,11 @@ const (
 
 // CLI entrypoint
 func main() {
-	var configPath string
-	flag.StringVar(&configPath, "c", "config.toml", "Load configuration from file")
+	var config string
+	flag.StringVar(&config, "c", "config.toml", "Load configuration from file")
 	flag.Parse()
 
-	config, err := LoadConfig(configPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	server, err := NewCertServer(config)
+	server, err := NewCertServerFromFile(config)
 	if err != nil {
 		log.Fatal(err)
 	}

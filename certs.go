@@ -45,6 +45,19 @@ func NewCertServer(config *certServerConfig) (*certServer, error) {
 	return server, nil
 }
 
+// Initialize certServer from configuration file
+func NewCertServerFromFile(path string) (*certServer, error) {
+	config, err := LoadConfig(path)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read config " + path)
+	}
+	server, err := NewCertServer(config)
+	if err != nil {
+		return nil, err
+	}
+	return server, nil
+}
+
 // Loop forever; service incoming connections
 func (cs *certServer) run(stop <-chan bool) error {
 	listener, err := net.Listen("tcp", cs.addr)
