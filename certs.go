@@ -46,7 +46,7 @@ func NewCertServer(config *certServerConfig) (*certServer, error) {
 }
 
 // Loop forever; service incoming connections
-func (cs *certServer) run() error {
+func (cs *certServer) run(stop <-chan bool) error {
 	listener, err := net.Listen("tcp", cs.addr)
 	if err != nil {
 		return errors.Wrap(err, "failed to listen for connection")
@@ -55,6 +55,12 @@ func (cs *certServer) run() error {
 
 	log.Printf("%s is listening on %s", os.Args[0], listener.Addr())
 	for {
+		select {
+		case <-stop:
+			log.Printf("received a signal to stop")
+			break
+		default: // continue with main loop
+		}
 		conn, err := listener.Accept()
 		if err != nil {
 			log.Printf("failed to accept connection from %s: %v", conn.RemoteAddr(), err)
