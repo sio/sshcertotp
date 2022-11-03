@@ -1,0 +1,6 @@
+listen = "127.0.0.1:20002"
+private_key = "demo/keys/ca-insecure"
+validity = "4h15m"
+
+[totp_secrets]
+alice = "sampletotpsecret"

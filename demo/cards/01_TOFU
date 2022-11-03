@@ -1,0 +1,2 @@
+Server advertises both a host key (CA) and a host certificate (signed by CA),
+so host authentication should not require trust-on-first-use (TOFU)

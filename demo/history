@@ -1,0 +1,38 @@
+### This file contains pre-recorded command lines for interactive presentation
+### of sshcertotp and (in theory) should save me from a few embarassing typos
+
+
+### Before recording
+export HISTFILE=$(mktemp); cat demo/history > "$HISTFILE"; history -c; history -r
+alias ssh='ssh -F demo/ssh_client -o UserKnownHostsFile=known_hosts'
+
+
+### slide: Server
+/usr/bin/sshd -f demo/sshd_config
+cat demo/config.toml
+go build && ./sshcertotp
+
+
+### slide: Happy path
+ssh alice@ssh.domain.tld
+ssh alice@login.domain.tld | tee user.cert
+ssh-keygen -L -f user.cert
+ssh alice@ssh.domain.tld
+
+
+### slide: Failure modes
+# Incorrect TOTP value
+ssh alice@login.domain.tld
+# Brute-forcing TOTP (rate limit in action)  # TODO: how to loop over interactive ssh calls?
+ssh alice@login.domain.tld
+# TCP timeout for TOTP input
+ssh alice@login.domain.tld
+
+
+### slide: TOFU
+# Trust any host that has a certificate signed by our CA
+echo "@cert-authority * $(cat demo/keys/ca-insecure.pub)" > known_hosts
+ssh alice@127.0.0.1 -p 20002 -o UserKnownHostsFile=known_hosts | tee user.cert
+
+# Trust a host that uses known CA key as host key
+echo "[127.0.0.1]:20002 $(cat demo/keys/ca-insecure.pub)" > known_hosts

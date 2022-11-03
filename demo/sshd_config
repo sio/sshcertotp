@@ -1,0 +1,3 @@
+Port 2200
+PasswordAuthentication no
+TrustedUserCAKeys demo/ca/insecure.pub
