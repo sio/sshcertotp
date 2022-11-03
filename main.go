@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"time"
 )
@@ -12,7 +13,11 @@ const (
 
 // CLI entrypoint
 func main() {
-	config, err := LoadConfig("config.toml")
+	var configPath string
+	flag.StringVar(&configPath, "c", "config.toml", "Load configuration from file")
+	flag.Parse()
+
+	config, err := LoadConfig(configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
