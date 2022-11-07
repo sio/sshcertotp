@@ -20,7 +20,7 @@ type certServer struct {
 	addr       string
 	totp       *TotpValidator
 	sshd       *ssh.ServerConfig
-	signer     *ssh.Signer
+	signer     ssh.Signer
 	validity   time.Duration
 	tcpTimeout time.Duration
 }
@@ -182,7 +182,7 @@ func (cs *certServer) Sign(conn *ssh.ServerConn) string {
 			},
 		},
 	}
-	err = cert.SignCert(rand.Reader, *cs.signer)
+	err = cert.SignCert(rand.Reader, cs.signer)
 	if err != nil {
 		return nocert
 	}
@@ -195,7 +195,7 @@ func (cs *certServer) Sign(conn *ssh.ServerConn) string {
 }
 
 // Configure ssh server
-func sshdConfig(hostKeyPath string) (*ssh.ServerConfig, *ssh.Signer, error) {
+func sshdConfig(hostKeyPath string) (*ssh.ServerConfig, ssh.Signer, error) {
 	server := &ssh.ServerConfig{
 		PublicKeyCallback: func(c ssh.ConnMetadata, pubkey ssh.PublicKey) (*ssh.Permissions, error) {
 			if pubkey.Type() != ssh.KeyAlgoED25519 {
@@ -242,7 +242,7 @@ func sshdConfig(hostKeyPath string) (*ssh.ServerConfig, *ssh.Signer, error) {
 		return nil, nil, errors.Wrap(err, "failed to initialize cert signer")
 	}
 	server.AddHostKey(hostCertSigner)
-	return server, &hostKey, nil
+	return server, hostKey, nil
 }
 
 // Format ssh connection information for including in logs
