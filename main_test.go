@@ -31,13 +31,17 @@ type testServer struct {
 	HostKeyChecker ssh.CertChecker
 }
 
+func DefaultServerConfig() (config *certServerConfig) {
+	return &certServerConfig{
+		Address:  "127.0.0.1:20000",
+		CAPath:   "demo/keys/ca-insecure",
+		Validity: 1 * time.Hour,
+	}
+}
+
 func (ts *testServer) Start(config *certServerConfig) error {
 	if config == nil {
-		config = &certServerConfig{
-			Address:  "127.0.0.1:20000",
-			CAPath:   "demo/keys/ca-insecure",
-			Validity: 1 * time.Hour,
-		}
+		config = DefaultServerConfig()
 	}
 
 	_, private, err := ed25519.GenerateKey(nil)

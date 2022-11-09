@@ -6,12 +6,15 @@ package main
 
 import (
 	"testing"
+
+	"time"
+
+	"github.com/pquerna/otp/totp"
 )
 
 func TestStartStop(t *testing.T) {
-	var server testServer
-	var err error
-	err = server.Start(nil)
+	server := &testServer{}
+	err := server.Start(nil)
 	if err != nil {
 		t.Fatalf("test server startup error: %v", err)
 	}
@@ -19,9 +22,13 @@ func TestStartStop(t *testing.T) {
 }
 
 func TestHappyPath(t *testing.T) {
-	var server testServer
-	var err error
-	err = server.Start(nil)
+	config := DefaultServerConfig()
+	config.TOTPSecrets = map[string]string{
+		"alice": "sampletotpsecret",
+		"bob":   "anothertotpsecret",
+	}
+	server := &testServer{}
+	err := server.Start(config)
 	if err != nil {
 		t.Fatalf("test server startup error: %v", err)
 	}
@@ -37,16 +44,18 @@ func TestHappyPath(t *testing.T) {
 	if err != nil {
 		t.Errorf("did not receive initial prompt: %v", err)
 	}
-	err = shell.SendLine("123")
+	code, err := totp.GenerateCode(config.TOTPSecrets["alice"], time.Now())
+	if err != nil {
+		t.Fatalf("could not generate TOTP code: %v", err)
+	}
+	err = shell.SendLine(code)
 	if err != nil {
 		t.Errorf("error after sending number: %v", err)
 	}
-	output, err := shell.Expect("ssh-")
-	if shell.closed {
-		t.Fatalf("shell connection closed")
-	}
+	output, err := shell.Expect("ssh-ed25519-cert-v01@openssh.com")
 	if err != nil {
 		t.Errorf("did not receive ssh certificate: %v", err)
+		t.Logf("shell output: '%s'", output)
 	}
-	t.Logf("shell output: '%s'", output)
+	t.Logf("got here")
 }
