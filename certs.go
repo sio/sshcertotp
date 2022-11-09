@@ -68,17 +68,26 @@ func (cs *certServer) run(stop <-chan bool) error {
 	}
 	defer listener.Close()
 
+	var closed bool
+	go func() {
+		<-stop
+		log.Printf("received a signal to stop")
+		listener.Close()
+		closed = true
+	}()
+
 	log.Printf("%s is listening on %s", os.Args[0], listener.Addr())
 	for {
-		select {
-		case <-stop:
-			log.Printf("received a signal to stop")
-			break
-		default: // continue with main loop
-		}
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Printf("failed to accept connection from %s: %v", conn.RemoteAddr(), err)
+			if conn != nil {
+				log.Printf("failed to accept connection from %s: %v", conn.RemoteAddr(), err)
+			} else {
+				log.Printf("failed to accept connection: %v", err)
+			}
+			if closed {
+				break
+			}
 			continue
 		}
 		go cs.handleTCP(conn)

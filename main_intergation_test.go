@@ -31,6 +31,7 @@ func TestHappyPath(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	defer shell.Close()
 
 	_, err = shell.Expect("# ")
 	if err != nil {

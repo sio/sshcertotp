@@ -67,6 +67,7 @@ func (ts *testServer) Start(config *certServerConfig) error {
 }
 
 func (ts *testServer) Stop() {
+	ts.StopCA <- true
 	close(ts.StopCA)
 }
 
@@ -108,7 +109,7 @@ func (ts *testServer) Shell(username string) (shell *Shell, err error) {
 		return nil, fmt.Errorf("could not start ssh session: %v", err)
 	}
 
-	return NewShell(session)
+	return NewShell(session, conn)
 }
 
 //
@@ -117,12 +118,11 @@ func (ts *testServer) Shell(username string) (shell *Shell, err error) {
 type Shell struct {
 	stdin   io.WriteCloser
 	stdout  io.Reader
-	closed  bool
-	err     error
 	timeout time.Duration
+	Close   func()
 }
 
-func NewShell(session *ssh.Session) (shell *Shell, err error) {
+func NewShell(session *ssh.Session, client *ssh.Client) (shell *Shell, err error) {
 	shell = &Shell{
 		timeout: time.Second / 2,
 	}
@@ -138,11 +138,10 @@ func NewShell(session *ssh.Session) (shell *Shell, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not start shell: %v", err)
 	}
-	go func() {
-		defer session.Close()
-		shell.err = session.Wait()
-		shell.closed = true
-	}()
+	shell.Close = func() {
+		session.Close()
+		client.Close()
+	}
 	return shell, nil
 }
 
