@@ -68,12 +68,10 @@ func (cs *certServer) run(stop <-chan bool) error {
 	}
 	defer listener.Close()
 
-	var closed bool
 	go func() {
 		<-stop
 		log.Printf("received a signal to stop")
 		listener.Close()
-		closed = true
 	}()
 
 	log.Printf("%s is listening on %s", os.Args[0], listener.Addr())
@@ -85,7 +83,8 @@ func (cs *certServer) run(stop <-chan bool) error {
 			} else {
 				log.Printf("failed to accept connection: %v", err)
 			}
-			if closed {
+			opErr, ok := err.(*net.OpError)
+			if ok && opErr.Op == "accept" {
 				break
 			}
 			continue
