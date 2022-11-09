@@ -1,9 +1,9 @@
-Host login.domain.tld
+Host certauthority.domain.tld
     Hostname 127.0.0.1
     Port 20002
     IdentityFile demo/keys/user-insecure
 
-Host ssh.domain.tld
+Host shell.domain.tld
     Hostname 127.0.0.1
     Port 2200
     IdentityFile demo/keys/user-insecure
