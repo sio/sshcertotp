@@ -57,5 +57,4 @@ func TestHappyPath(t *testing.T) {
 		t.Errorf("did not receive ssh certificate: %v", err)
 		t.Logf("shell output: '%s'", output)
 	}
-	t.Logf("got here")
 }
