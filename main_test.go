@@ -147,16 +147,16 @@ func TestHappyPath(t *testing.T) {
 }
 
 type Shell struct {
-	stdin  io.WriteCloser
-	stdout io.Reader
-	closed bool
-	err    error
+	stdin   io.WriteCloser
+	stdout  io.Reader
+	closed  bool
+	err     error
 	timeout time.Duration
 }
 
 func NewShell(session *ssh.Session) (shell *Shell, err error) {
 	shell = &Shell{
-		timeout: time.Second / 2
+		timeout: time.Second / 2,
 	}
 	shell.stdin, err = session.StdinPipe()
 	if err != nil {
