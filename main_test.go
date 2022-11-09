@@ -1,5 +1,5 @@
 //
-// Integration tests
+// Helper functions and types for integration tests
 //
 
 package main
@@ -9,13 +9,14 @@ import (
 	"crypto/ed25519"
 	"fmt"
 	"io"
-	"testing"
 	"time"
 
-	_ "github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/ssh"
 )
 
+//
+// Ephemeral CertAuthority instance
+//
 type testServer struct {
 	// CertAuthority instance we're testing against
 	CertAuthority *certServer
@@ -69,9 +70,16 @@ func (ts *testServer) Stop() {
 	close(ts.StopCA)
 }
 
+//
+// Simple SSH client
+//
 type testClient struct {
 	config *ssh.ClientConfig
 	target string
+}
+
+func (tc *testClient) Dial() (*ssh.Client, error) {
+	return ssh.Dial("tcp", tc.target, tc.config)
 }
 
 func (ts *testServer) Client(username string) *testClient {
@@ -103,52 +111,9 @@ func (ts *testServer) Shell(username string) (shell *Shell, err error) {
 	return NewShell(session)
 }
 
-func (tc *testClient) Dial() (*ssh.Client, error) {
-	return ssh.Dial("tcp", tc.target, tc.config)
-}
-
-func TestStartStop(t *testing.T) {
-	var server testServer
-	var err error
-	err = server.Start(nil)
-	if err != nil {
-		t.Fatalf("test server startup error: %v", err)
-	}
-	defer server.Stop()
-}
-
-func TestHappyPath(t *testing.T) {
-	var server testServer
-	var err error
-	err = server.Start(nil)
-	if err != nil {
-		t.Fatalf("test server startup error: %v", err)
-	}
-	defer server.Stop()
-
-	shell, err := server.Shell("alice")
-	if err != nil {
-		t.Error(err)
-	}
-
-	_, err = shell.Expect("# ")
-	if err != nil {
-		t.Errorf("did not receive initial prompt: %v", err)
-	}
-	err = shell.SendLine("123")
-	if err != nil {
-		t.Errorf("error after sending number: %v", err)
-	}
-	output, err := shell.Expect("ssh-")
-	if shell.closed {
-		t.Fatalf("shell connection closed")
-	}
-	if err != nil {
-		t.Errorf("did not receive ssh certificate: %v", err)
-	}
-	fmt.Printf(output)
-}
-
+//
+// Expect-inspired shell object (works on Windows too)
+//
 type Shell struct {
 	stdin   io.WriteCloser
 	stdout  io.Reader
@@ -182,7 +147,7 @@ func NewShell(session *ssh.Session) (shell *Shell, err error) {
 }
 
 func (s *Shell) SendLine(line string) error {
-	return s.Send(fmt.Sprintf("%s\r\n", line))  // CRLF!
+	return s.Send(fmt.Sprintf("%s\r\n", line)) // CRLF!
 }
 
 func (s *Shell) Send(raw string) (err error) {
