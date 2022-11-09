@@ -178,8 +178,22 @@ func NewShell(session *ssh.Session) (shell *Shell, err error) {
 	return shell, nil
 }
 
-func (s *Shell) SendLine(line string) error {
-	return s.Send(fmt.Sprintf("%s\n", line))
+func (s *Shell) SendLine(line string) (err error) {
+	err = s.Send(fmt.Sprintf("%s\n", line))
+	if err != nil {
+		return err
+	}
+
+	// CRLF. LF alone (\n) was not enough. Lost a lot of time.
+	// I tested on Windows, may be that's the reason?
+	newline := []byte("\r\n")
+
+	n, err := s.stdin.Write(newline)
+	if n != len(newline) {
+		return fmt.Errorf("written %d bytes instead of a newline", n)
+	} else {
+		return err
+	}
 }
 
 func (s *Shell) Send(raw string) (err error) {
