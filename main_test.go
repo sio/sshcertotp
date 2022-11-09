@@ -5,13 +5,29 @@
 package main
 
 import (
+	"bytes"
+	"crypto/ed25519"
+	"fmt"
+	"io"
 	"testing"
 	"time"
+
+	_ "github.com/pquerna/otp/totp"
+	"golang.org/x/crypto/ssh"
 )
 
 type testServer struct {
-	ca *certServer
-	s  chan bool
+	// CertAuthority instance we're testing against
+	CertAuthority *certServer
+
+	// A channel for graceful shutdown on CertAuthority instance
+	StopCA chan bool
+
+	// Random SSH key pair for client
+	ClientKey ssh.Signer
+
+	// SSH host key validator
+	HostKeyChecker ssh.CertChecker
 }
 
 func (ts *testServer) Start(config *certServerConfig) error {
@@ -23,30 +39,56 @@ func (ts *testServer) Start(config *certServerConfig) error {
 		}
 	}
 
-	ts.s = make(chan bool)
-	var err error
-	ts.ca, err = NewCertServer(config)
+	_, private, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return err
 	}
-	go ts.ca.run(ts.s)
+	ts.ClientKey, err = ssh.NewSignerFromKey(private)
+	if err != nil {
+		return err
+	}
+
+	ts.StopCA = make(chan bool)
+	ts.CertAuthority, err = NewCertServer(config)
+	if err != nil {
+		return err
+	}
+
+	ts.HostKeyChecker = ssh.CertChecker{
+		IsHostAuthority: func(auth ssh.PublicKey, address string) bool {
+			return bytes.Equal(auth.Marshal(), ts.CertAuthority.signer.PublicKey().Marshal())
+		},
+		HostKeyFallback: ssh.FixedHostKey(ts.CertAuthority.signer.PublicKey()),
+	}
+
+	go ts.CertAuthority.run(ts.StopCA)
 	return nil
 }
 
 func (ts *testServer) Stop() {
-	ts.s <- true
+	close(ts.StopCA)
 }
 
 type testClient struct {
-	username   string
-	serverAddr string
+	config *ssh.ClientConfig
+	target string
 }
 
 func (ts *testServer) Client(username string) *testClient {
 	return &testClient{
-		username:   username,
-		serverAddr: ts.ca.addr,
+		config: &ssh.ClientConfig{
+			User: username,
+			Auth: []ssh.AuthMethod{
+				ssh.PublicKeys(ts.ClientKey),
+			},
+			HostKeyCallback: ts.HostKeyChecker.CheckHostKey,
+		},
+		target: "127.0.0.1:20002", // ts.CertAuthority.addr, // TODO: switch this back
 	}
+}
+
+func (tc *testClient) Dial() (*ssh.Client, error) {
+	return ssh.Dial("tcp", tc.target, tc.config)
 }
 
 func TestStartStop(t *testing.T) {
@@ -56,5 +98,126 @@ func TestStartStop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("test server startup error: %v", err)
 	}
-	server.Stop()
+	defer server.Stop()
+}
+
+func TestHappyPath(t *testing.T) {
+	var server testServer
+	var err error
+	err = server.Start(nil)
+	if err != nil {
+		t.Fatalf("test server startup error: %v", err)
+	}
+	defer server.Stop()
+
+	client := server.Client("alice")
+	conn, err := client.Dial()
+	if err != nil {
+		t.Fatalf("could not dial ssh connection: %v", err)
+	}
+	defer conn.Close()
+
+	session, err := conn.NewSession()
+	if err != nil {
+		t.Fatalf("could not start ssh session: %v", err)
+	}
+
+	shell, err := NewShell(session)
+	if err != nil {
+		t.Fatalf("could not open shell: %v", err)
+	}
+
+	_, err = shell.Expect("# ")
+	if err != nil {
+		t.Errorf("did not receive initial prompt: %v", err)
+	}
+	err = shell.SendLine("123")
+	if err != nil {
+		t.Errorf("error after sending number: %v", err)
+	}
+	output, err := shell.Expect("ssh-")
+	if shell.closed {
+		t.Fatalf("shell connection closed")
+	}
+	if err != nil {
+		t.Errorf("did not receive ssh certificate: %v", err)
+	}
+	fmt.Printf(output)
+}
+
+type Shell struct {
+	stdin  io.WriteCloser
+	stdout io.Reader
+	closed bool
+	err    error
+}
+
+func NewShell(session *ssh.Session) (*Shell, error) {
+	shell := &Shell{}
+	var err error
+	shell.stdin, err = session.StdinPipe()
+	if err != nil {
+		return nil, fmt.Errorf("could not attach stdin: %v", err)
+	}
+	shell.stdout, err = session.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("could not attach stdout: %v", err)
+	}
+	err = session.Shell()
+	if err != nil {
+		return nil, fmt.Errorf("could not start shell: %v", err)
+	}
+	go func() {
+		defer session.Close()
+		shell.err = session.Wait()
+		shell.closed = true
+	}()
+	return shell, nil
+}
+
+func (s *Shell) SendLine(line string) error {
+	return s.Send(fmt.Sprintf("%s\n", line))
+}
+
+func (s *Shell) Send(raw string) (err error) {
+	if len(raw) == 0 {
+		return nil
+	}
+	n, err := s.stdin.Write([]byte(raw))
+	if n == 0 {
+		return fmt.Errorf("zero bytes written")
+	}
+	return err
+}
+
+func (s *Shell) Expect(exact string) (value string, err error) {
+	timeout := time.Second / 2 // default timeout
+	received := make([]byte, 10)
+	errors := make(chan error)
+	go func() {
+		var pos int
+		needle := []byte(exact)
+		for {
+			n, err := s.stdout.Read(received[pos:])
+			if err != nil {
+				errors <- err
+				break
+			}
+			pos += n
+			if bytes.Equal(needle, received[pos-len(needle):pos]) {
+				errors <- nil
+				close(errors)
+				break
+			}
+		}
+	}()
+	select {
+	case <-time.After(timeout):
+		return "", fmt.Errorf("timed out waiting for '%s'", exact)
+	case err := <-errors:
+		if err != nil {
+			return "", err
+		}
+		return string(received), nil
+	}
 }
