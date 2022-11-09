@@ -179,7 +179,7 @@ func NewShell(session *ssh.Session) (shell *Shell, err error) {
 }
 
 func (s *Shell) SendLine(line string) error {
-	return s.Send(fmt.Sprintf("%s\n", line))
+	return s.Send(fmt.Sprintf("%s\r\n", line))  // CRLF!
 }
 
 func (s *Shell) Send(raw string) (err error) {
