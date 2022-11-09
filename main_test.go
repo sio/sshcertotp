@@ -87,6 +87,22 @@ func (ts *testServer) Client(username string) *testClient {
 	}
 }
 
+func (ts *testServer) Shell(username string) (shell *Shell, err error) {
+	client := ts.Client(username)
+
+	conn, err := client.Dial()
+	if err != nil {
+		return nil, fmt.Errorf("could not dial ssh connection: %v", err)
+	}
+
+	session, err := conn.NewSession()
+	if err != nil {
+		return nil, fmt.Errorf("could not start ssh session: %v", err)
+	}
+
+	return NewShell(session)
+}
+
 func (tc *testClient) Dial() (*ssh.Client, error) {
 	return ssh.Dial("tcp", tc.target, tc.config)
 }
@@ -110,22 +126,9 @@ func TestHappyPath(t *testing.T) {
 	}
 	defer server.Stop()
 
-	client := server.Client("alice")
-	conn, err := client.Dial()
+	shell, err := server.Shell("alice")
 	if err != nil {
-		t.Fatalf("could not dial ssh connection: %v", err)
-	}
-	defer conn.Close()
-
-	session, err := conn.NewSession()
-	if err != nil {
-		t.Fatalf("could not start ssh session: %v", err)
-	}
-	defer session.Close()
-
-	shell, err := NewShell(session)
-	if err != nil {
-		t.Fatalf("could not open shell: %v", err)
+		t.Error(err)
 	}
 
 	_, err = shell.Expect("# ")
