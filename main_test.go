@@ -88,6 +88,9 @@ func (tc *testClient) Dial() (*ssh.Client, error) {
 }
 
 func (ts *testServer) Client(username string) *testClient {
+	for !ts.CertAuthority.ready {
+		time.Sleep(time.Second / 3)
+	}
 	return &testClient{
 		config: &ssh.ClientConfig{
 			User: username,

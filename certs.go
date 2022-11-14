@@ -23,6 +23,7 @@ type certServer struct {
 	signer     ssh.Signer
 	validity   time.Duration
 	tcpTimeout time.Duration
+	ready      bool
 }
 
 // Initialize certServer instance
@@ -70,11 +71,13 @@ func (cs *certServer) run(stop <-chan bool) error {
 
 	go func() {
 		<-stop
+		cs.ready = false
 		log.Printf("received a signal to stop")
 		listener.Close()
 	}()
 
 	log.Printf("%s is listening on %s", os.Args[0], listener.Addr())
+	cs.ready = true
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
