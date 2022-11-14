@@ -9,6 +9,8 @@ import (
 
 	"fmt"
 	"time"
+	"errors"
+	"io"
 
 	"github.com/pquerna/otp/totp"
 )
@@ -70,4 +72,23 @@ func TestHappyPath(t *testing.T) {
 		t.Errorf("did not receive ssh certificate: %v", err)
 		t.Logf("shell output: '%s'", output)
 	}
+}
+
+func TestInvalidTOTP(t *testing.T) {
+	_, shell, cleanup, err := setup()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+
+	err = shell.SendLine("123123123")
+	if err != nil {
+		t.Errorf("could not send number: %v", err)
+	}
+	output, err := shell.Expect("anything")
+	if !errors.Is(err, io.EOF) {
+		t.Errorf("connection should have been closed on bad input, instead got: %v", err)
+		t.Logf("shell output: '%s'", output)
+	}
+
 }
