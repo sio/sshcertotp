@@ -15,3 +15,13 @@ this user.
 If this is a problem in your use case, consider adding another authentication
 factor before TOTP (password / IP allow list / messenger bot / etc).
 To do that place your extra logic right after `term.ReadPassword()` call.
+
+### Weakness: unencrypted CA private key
+
+Current implementation assumes that CA private key is stored unencrypted on
+the file system. This is fine for a proof of concept and for low stakes usage
+scenario, but may pose a significant threat otherwise. Take this into
+consideration before deploying.
+
+Use more secure private key storage if possible: TPM, smart card, HSM
+(requires source code modification).
