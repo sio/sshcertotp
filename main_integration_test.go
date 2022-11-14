@@ -7,6 +7,7 @@ package main
 import (
 	"testing"
 
+	"fmt"
 	"time"
 
 	"github.com/pquerna/otp/totp"
@@ -21,30 +22,42 @@ func TestStartStop(t *testing.T) {
 	defer server.Stop()
 }
 
-func TestHappyPath(t *testing.T) {
+func setup() (server *testServer, shell *Shell, cleanup func(), err error) {
 	config := DefaultServerConfig()
 	config.TOTPSecrets = map[string]string{
 		"alice": "sampletotpsecret",
 		"bob":   "anothertotpsecret",
 	}
-	server := &testServer{}
-	err := server.Start(config)
+	server = &testServer{}
+	err = server.Start(config)
 	if err != nil {
-		t.Fatalf("test server startup error: %v", err)
+		return nil, nil, nil, fmt.Errorf("test server startup error: %v", err)
 	}
-	defer server.Stop()
 
-	shell, err := server.Shell("alice")
+	shell, err = server.Shell("alice")
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	cleanup = func() {
+		shell.Close()
+		server.Stop()
+	}
+	return server, shell, cleanup, nil
+}
+
+func TestHappyPath(t *testing.T) {
+	server, shell, cleanup, err := setup()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer shell.Close()
+	defer cleanup()
 
 	_, err = shell.Expect("# ")
 	if err != nil {
 		t.Errorf("did not receive initial prompt: %v", err)
 	}
-	code, err := totp.GenerateCode(config.TOTPSecrets["alice"], time.Now())
+	code, err := totp.GenerateCode(server.Config.TOTPSecrets["alice"], time.Now())
 	if err != nil {
 		t.Fatalf("could not generate TOTP code: %v", err)
 	}

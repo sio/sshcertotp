@@ -21,6 +21,7 @@ import (
 type testServer struct {
 	// CertAuthority instance we're testing against
 	CertAuthority *certServer
+	Config        *certServerConfig
 
 	// A channel for graceful shutdown on CertAuthority instance
 	StopCA chan bool
@@ -78,6 +79,7 @@ func (ts *testServer) Start(config *certServerConfig) error {
 		HostKeyFallback: ssh.FixedHostKey(ts.CertAuthority.signer.PublicKey()),
 	}
 
+	ts.Config = config
 	go ts.CertAuthority.run(ts.StopCA)
 	return nil
 }
