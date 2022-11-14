@@ -7,10 +7,10 @@ package main
 import (
 	"testing"
 
-	"fmt"
-	"time"
 	"errors"
+	"fmt"
 	"io"
+	"time"
 
 	"github.com/pquerna/otp/totp"
 )
