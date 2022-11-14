@@ -9,8 +9,8 @@ import (
 	"crypto/ed25519"
 	"fmt"
 	"io"
-	"time"
 	"sync/atomic"
+	"time"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -33,6 +33,7 @@ type testServer struct {
 }
 
 var TestServerPort uint32
+
 const MinServerPort uint32 = 20000
 
 func DefaultServerConfig() (config *certServerConfig) {
@@ -40,7 +41,7 @@ func DefaultServerConfig() (config *certServerConfig) {
 	atomic.AddUint32(&TestServerPort, uint32(1))
 	port = atomic.LoadUint32(&TestServerPort)
 	if port < MinServerPort {
-		atomic.AddUint32(&TestServerPort, MinServerPort - port)
+		atomic.AddUint32(&TestServerPort, MinServerPort-port)
 		port = atomic.LoadUint32(&TestServerPort)
 	}
 	return &certServerConfig{
