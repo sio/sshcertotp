@@ -9,6 +9,9 @@ import (
 	"crypto/ed25519"
 	"fmt"
 	"io"
+	"net"
+	"os"
+	"path/filepath"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -29,6 +32,9 @@ type testServer struct {
 
 	// SSH host key validator
 	HostKeyChecker ssh.CertChecker
+
+	// Unix socket to use instead of TCP port
+	SocketPath string
 }
 
 func DefaultServerConfig() (config *certServerConfig) {
@@ -66,12 +72,26 @@ func (ts *testServer) Start(config *certServerConfig) error {
 		HostKeyFallback: ssh.FixedHostKey(ts.CertAuthority.signer.PublicKey()),
 	}
 
-	go ts.CertAuthority.run(ts.StopCA)
+	temp, err := os.MkdirTemp("", "sshcertotp_test_*")
+	if err != nil {
+		return err
+	}
+	ts.SocketPath = filepath.Join(temp, "socket")
+	listener, err := net.Listen("unix", ts.SocketPath)
+	if err != nil {
+		return err
+	}
+
+	go ts.CertAuthority.run(listener, ts.StopCA)
 	return nil
 }
 
 func (ts *testServer) Stop() {
 	ts.StopCA <- true
+	if len(ts.SocketPath) > 0 {
+		os.Remove(ts.SocketPath)
+		os.RemoveAll(filepath.Dir(ts.SocketPath))
+	}
 	close(ts.StopCA)
 }
 
@@ -84,7 +104,7 @@ type testClient struct {
 }
 
 func (tc *testClient) Dial() (*ssh.Client, error) {
-	return ssh.Dial("tcp", tc.target, tc.config)
+	return ssh.Dial("unix", tc.target, tc.config)
 }
 
 func (ts *testServer) Client(username string) *testClient {
@@ -96,7 +116,7 @@ func (ts *testServer) Client(username string) *testClient {
 			},
 			HostKeyCallback: ts.HostKeyChecker.CheckHostKey,
 		},
-		target: ts.CertAuthority.addr,
+		target: ts.SocketPath,
 	}
 }
 

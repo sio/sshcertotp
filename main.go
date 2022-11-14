@@ -21,7 +21,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = server.run(nil)
+	err = server.Run()
 	if err != nil {
 		log.Fatal(err)
 	}
