@@ -35,7 +35,7 @@ type testServer struct {
 
 var TestServerPort uint32
 
-const MinServerPort uint32 = 20000
+const MinServerPort uint32 = 22000
 
 func DefaultServerConfig() (config *certServerConfig) {
 	var port uint32
