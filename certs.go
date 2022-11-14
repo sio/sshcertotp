@@ -61,17 +61,10 @@ func NewCertServerFromFile(path string) (*certServer, error) {
 }
 
 // Loop forever; service incoming connections
-func (cs *certServer) Run() error {
-	// Custom run() arguments are meant to be used only in tests
-	return cs.run(nil, nil)
-}
-func (cs *certServer) run(listener net.Listener, stop <-chan bool) error {
-	var err error
-	if listener == nil {
-		listener, err = net.Listen("tcp", cs.addr)
-		if err != nil {
-			return errors.Wrap(err, "failed to listen for connection")
-		}
+func (cs *certServer) run(stop <-chan bool) error {
+	listener, err := net.Listen("tcp", cs.addr)
+	if err != nil {
+		return errors.Wrap(err, "failed to listen for connection")
 	}
 	defer listener.Close()
 
