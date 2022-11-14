@@ -36,7 +36,7 @@ func TestHappyPath(t *testing.T) {
 
 	shell, err := server.Shell("alice")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	defer shell.Close()
 
