@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"time"
+	"sync/atomic"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -31,9 +32,19 @@ type testServer struct {
 	HostKeyChecker ssh.CertChecker
 }
 
+var TestServerPort uint32
+const MinServerPort uint32 = 20000
+
 func DefaultServerConfig() (config *certServerConfig) {
+	var port uint32
+	atomic.AddUint32(&TestServerPort, uint32(1))
+	port = atomic.LoadUint32(&TestServerPort)
+	if port < MinServerPort {
+		atomic.AddUint32(&TestServerPort, MinServerPort - port)
+		port = atomic.LoadUint32(&TestServerPort)
+	}
 	return &certServerConfig{
-		Address:  "127.0.0.1:20000",
+		Address:  fmt.Sprintf("127.0.0.1:%d", port),
 		CAPath:   "demo/keys/ca-insecure",
 		Validity: 1 * time.Hour,
 	}
