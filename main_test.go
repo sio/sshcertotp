@@ -122,12 +122,12 @@ func (ts *testServer) Shell(username string) (shell *Shell, err error) {
 
 	conn, err := client.Dial()
 	if err != nil {
-		return nil, fmt.Errorf("could not dial ssh connection: %v", err)
+		return nil, fmt.Errorf("could not dial ssh connection: %w", err)
 	}
 
 	session, err := conn.NewSession()
 	if err != nil {
-		return nil, fmt.Errorf("could not start ssh session: %v", err)
+		return nil, fmt.Errorf("could not start ssh session: %w", err)
 	}
 
 	return NewShell(session, conn)
@@ -149,15 +149,15 @@ func NewShell(session *ssh.Session, client *ssh.Client) (shell *Shell, err error
 	}
 	shell.stdin, err = session.StdinPipe()
 	if err != nil {
-		return nil, fmt.Errorf("could not attach stdin: %v", err)
+		return nil, fmt.Errorf("could not attach stdin: %w", err)
 	}
 	shell.stdout, err = session.StdoutPipe()
 	if err != nil {
-		return nil, fmt.Errorf("could not attach stdout: %v", err)
+		return nil, fmt.Errorf("could not attach stdout: %w", err)
 	}
 	err = session.Shell()
 	if err != nil {
-		return nil, fmt.Errorf("could not start shell: %v", err)
+		return nil, fmt.Errorf("could not start shell: %w", err)
 	}
 	shell.Close = func() {
 		session.Close()

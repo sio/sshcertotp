@@ -23,7 +23,7 @@ func LoadConfig(path string) (*certServerConfig, error) {
 	}
 	_, err := toml.DecodeFile(path, conf)
 	if err != nil {
-		return nil, fmt.Errorf("error while parsing %s: %v", path, err)
+		return nil, fmt.Errorf("error while parsing %s: %w", path, err)
 	}
 	return conf, nil
 }

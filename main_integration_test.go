@@ -33,7 +33,7 @@ func setup() (server *testServer, shell *Shell, cleanup func(), err error) {
 	server = &testServer{}
 	err = server.Start(config)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("test server startup error: %v", err)
+		return nil, nil, nil, fmt.Errorf("test server startup error: %w", err)
 	}
 
 	shell, err = server.Shell("alice")

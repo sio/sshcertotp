@@ -51,7 +51,7 @@ func NewCertServer(config *certServerConfig) (*certServer, error) {
 func NewCertServerFromFile(path string) (*certServer, error) {
 	config, err := LoadConfig(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config (%s): %v", path, err)
+		return nil, fmt.Errorf("failed to read config (%s): %w", path, err)
 	}
 	server, err := NewCertServer(config)
 	if err != nil {
@@ -64,7 +64,7 @@ func NewCertServerFromFile(path string) (*certServer, error) {
 func (cs *certServer) run(stop <-chan bool) error {
 	listener, err := net.Listen("tcp", cs.addr)
 	if err != nil {
-		return fmt.Errorf("failed to listen for connection: %v", err)
+		return fmt.Errorf("failed to listen for connection: %w", err)
 	}
 	defer listener.Close()
 
@@ -221,18 +221,18 @@ func sshdConfig(hostKeyPath string) (*ssh.ServerConfig, ssh.Signer, error) {
 	}
 	stat, err := os.Stat(hostKeyPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not stat %s: %v", hostKeyPath, err)
+		return nil, nil, fmt.Errorf("could not stat %s: %w", hostKeyPath, err)
 	}
 	if stat.Mode().Perm()&0b000111111 != 0 {
 		log.Printf("CA private key is accessible to other users: %s (%s)", hostKeyPath, stat.Mode())
 	}
 	hostKeyBytes, err := os.ReadFile(hostKeyPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read the host key: %v", err)
+		return nil, nil, fmt.Errorf("failed to read the host key: %w", err)
 	}
 	hostKey, err := ssh.ParsePrivateKey(hostKeyBytes)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse the host key: %v", err)
+		return nil, nil, fmt.Errorf("failed to parse the host key: %w", err)
 	}
 	hostKeyAlgo := hostKey.PublicKey().Type()
 	if hostKeyAlgo != ssh.KeyAlgoED25519 {
@@ -256,7 +256,7 @@ func sshdConfig(hostKeyPath string) (*ssh.ServerConfig, ssh.Signer, error) {
 	}
 	hostCertSigner, err := ssh.NewCertSigner(&hostCert, hostKey)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to initialize cert signer: %v", err)
+		return nil, nil, fmt.Errorf("failed to initialize cert signer: %w", err)
 	}
 	server.AddHostKey(hostCertSigner)
 	return server, hostKey, nil
