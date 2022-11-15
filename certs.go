@@ -220,6 +220,13 @@ func sshdConfig(hostKeyPath string) (*ssh.ServerConfig, ssh.Signer, error) {
 			}, nil
 		},
 	}
+	stat, err := os.Stat(hostKeyPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not stat %s: %v", hostKeyPath, err)
+	}
+	if stat.Mode().Perm()&0b000111111 != 0 {
+		log.Printf("CA private key is accessible to other users: %s (%s)", hostKeyPath, stat.Mode())
+	}
 	hostKeyBytes, err := os.ReadFile(hostKeyPath)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to read the host key")
