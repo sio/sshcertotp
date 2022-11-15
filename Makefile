@@ -4,8 +4,8 @@ BUILD_DIR=build
 
 
 GO?=go
-GOOS?=linux
-GOARCH?=amd64
+GOOS?=$(shell $(GO) env GOOS)
+GOARCH?=$(shell $(GO) env GOARCH)
 export GOOS
 export GOARCH
 
@@ -16,7 +16,7 @@ build:
 
 
 .PHONY: build-all
-build-all:
+build-all: version
 	cd $(BUILD_DIR) && find -type f \
 	| cut -c3- \
 	| while read NAME; do mv "$$NAME" "$$(echo "$$NAME"|sed 's:/:-:g')"; done
@@ -29,8 +29,13 @@ build-all:
 
 
 .PHONY: test
-test:
+test: version
 	$(GO) test -v .
+
+
+.PHONY:
+version:
+	$(GO) version
 
 
 .PHONY: clean
