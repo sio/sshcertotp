@@ -10,7 +10,6 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -52,7 +51,7 @@ func NewCertServer(config *certServerConfig) (*certServer, error) {
 func NewCertServerFromFile(path string) (*certServer, error) {
 	config, err := LoadConfig(path)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to read config "+path)
+		return nil, fmt.Errorf("failed to read config (%s): %v", path, err)
 	}
 	server, err := NewCertServer(config)
 	if err != nil {
@@ -65,7 +64,7 @@ func NewCertServerFromFile(path string) (*certServer, error) {
 func (cs *certServer) run(stop <-chan bool) error {
 	listener, err := net.Listen("tcp", cs.addr)
 	if err != nil {
-		return errors.Wrap(err, "failed to listen for connection")
+		return fmt.Errorf("failed to listen for connection: %v", err)
 	}
 	defer listener.Close()
 
@@ -229,11 +228,11 @@ func sshdConfig(hostKeyPath string) (*ssh.ServerConfig, ssh.Signer, error) {
 	}
 	hostKeyBytes, err := os.ReadFile(hostKeyPath)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to read the host key")
+		return nil, nil, fmt.Errorf("failed to read the host key: %v", err)
 	}
 	hostKey, err := ssh.ParsePrivateKey(hostKeyBytes)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to parse the host key")
+		return nil, nil, fmt.Errorf("failed to parse the host key: %v", err)
 	}
 	hostKeyAlgo := hostKey.PublicKey().Type()
 	if hostKeyAlgo != ssh.KeyAlgoED25519 {
@@ -257,7 +256,7 @@ func sshdConfig(hostKeyPath string) (*ssh.ServerConfig, ssh.Signer, error) {
 	}
 	hostCertSigner, err := ssh.NewCertSigner(&hostCert, hostKey)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to initialize cert signer")
+		return nil, nil, fmt.Errorf("failed to initialize cert signer: %v", err)
 	}
 	server.AddHostKey(hostCertSigner)
 	return server, hostKey, nil

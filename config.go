@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/pkg/errors"
 )
 
 type certServerConfig struct {
@@ -24,7 +23,7 @@ func LoadConfig(path string) (*certServerConfig, error) {
 	}
 	_, err := toml.DecodeFile(path, conf)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("error while parsing %s", path))
+		return nil, fmt.Errorf("error while parsing %s: %v", path, err)
 	}
 	return conf, nil
 }
