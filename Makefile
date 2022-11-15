@@ -35,7 +35,7 @@ test: version
 
 .PHONY:
 version:
-	$(GO) version
+	@$(GO) version
 
 
 .PHONY: clean
