@@ -33,6 +33,12 @@ test: version
 	$(GO) test -v .
 
 
+.PHONY: lint
+lint:
+	$(GO) fmt ./...
+	$(GO) vet ./...
+
+
 .PHONY:
 version:
 	@$(GO) version
